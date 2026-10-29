@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import matplotlib.pyplot as plt
 from hava import HavaServisi
 from veritabani import Veritabani
@@ -6,23 +7,77 @@ from veritabani import Veritabani
 hava_servisi = HavaServisi()
 db = Veritabani()
 
+
+def hava_goster(sehir):
+    konum = hava_servisi.konum_bul(sehir)
+
+    if konum is None:
+        st.error("Şehir bulunamadı, tekrar dene.")
+        return
+
+    enlem, boylam = konum
+    sicaklik, ruzgar = hava_servisi.hava_getir(enlem, boylam)
+    db.sorgu_kaydet(sehir, sicaklik, ruzgar)
+
+    st.subheader(sehir)
+    sol, sag = st.columns(2)
+    sol.metric("Sıcaklık", f"{sicaklik} °C")
+    sag.metric("Rüzgar", f"{ruzgar} km/s")
+
+    st.info(hava_servisi.uyari_mesaji(sicaklik))
+
+    st.subheader("5 Günlük Tahmin")
+    tahmin = hava_servisi.tahmin_getir(enlem, boylam)
+    tahmin_df = pd.DataFrame(
+        tahmin, columns=["Gün", "En Yüksek (°C)", "En Düşük (°C)"]
+    )
+    st.dataframe(tahmin_df, use_container_width=True, hide_index=True)
+
+    fig, ax = plt.subplots()
+    ax.plot(tahmin_df["Gün"], tahmin_df["En Yüksek (°C)"], marker="o", label="En yüksek")
+    ax.plot(tahmin_df["Gün"], tahmin_df["En Düşük (°C)"], marker="o", label="En düşük")
+    ax.set_ylabel("Sıcaklık (°C)")
+    ax.set_title(f"{sehir} - 5 günlük tahmin")
+    ax.legend()
+    st.pyplot(fig)
+
+
 st.title("Hava Durumu Uygulaması")
 
-sehir = st.text_input("Şehir adı", "Istanbul")
+sehir = st.text_input("Şehir adı", "Istanbul").strip()
 
-if st.button("Hava Durumunu Getir"):
-    sonuc = hava_servisi.sehir_hava(sehir)
+sol, sag = st.columns(2)
+getir = sol.button("Hava Durumunu Getir")
+favori_ekle = sag.button("⭐ Favorilere Ekle")
 
-    if sonuc is None:
-        st.error("Şehir bulunamadı, tekrar dene.")
+goster = None
+
+if getir:
+    goster = sehir
+
+if favori_ekle:
+    if hava_servisi.konum_bul(sehir) is None:
+        st.error("Şehir bulunamadı, favoriye eklenemedi.")
     else:
-        sicaklik, ruzgar = sonuc
-        db.sorgu_kaydet(sehir, sicaklik, ruzgar)
+        db.favori_ekle(sehir)
+        st.success(f"{sehir} favorilere eklendi.")
 
-        st.subheader(sehir)
-        sol, sag = st.columns(2)
-        sol.metric("Sıcaklık", f"{sicaklik} °C")
-        sag.metric("Rüzgar", f"{ruzgar} km/s")
+st.sidebar.header("⭐ Favori Şehirler")
+favoriler = db.favorileri_getir()
+
+if len(favoriler) == 0:
+    st.sidebar.info("Henüz favori şehir yok.")
+
+for fav in favoriler:
+    a, b = st.sidebar.columns([3, 1])
+    if a.button(fav, key=f"git_{fav}"):
+        goster = fav
+    if b.button("❌", key=f"sil_{fav}"):
+        db.favori_sil(fav)
+        st.rerun()
+
+if goster:
+    hava_goster(goster)
 
 st.divider()
 st.subheader("Geçmiş Sorgular")
