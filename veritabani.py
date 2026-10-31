@@ -1,6 +1,6 @@
 import sqlite3
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 
 class Veritabani:
@@ -30,7 +30,7 @@ class Veritabani:
         baglanti.close()
 
     def sorgu_kaydet(self, sehir, sicaklik, ruzgar):
-        tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
+        tarih = datetime.now(timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M")
         baglanti = sqlite3.connect(self.db_adi)
         imlec = baglanti.cursor()
         imlec.execute(
