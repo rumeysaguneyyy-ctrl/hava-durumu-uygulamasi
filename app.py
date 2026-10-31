@@ -16,20 +16,26 @@ def hava_goster(sehir):
         return
 
     enlem, boylam = konum
-    sicaklik, ruzgar = hava_servisi.hava_getir(enlem, boylam)
+    sicaklik, ruzgar, kod = hava_servisi.hava_getir(enlem, boylam)
+    emoji, durum = hava_servisi.durum_bul(kod)
     db.sorgu_kaydet(sehir, sicaklik, ruzgar)
 
     st.subheader(sehir)
+    st.markdown(f"## {emoji} {durum}")
+
     sol, sag = st.columns(2)
     sol.metric("Sıcaklık", f"{sicaklik} °C")
     sag.metric("Rüzgar", f"{ruzgar} km/s")
 
     st.info(hava_servisi.uyari_mesaji(sicaklik))
 
+    if hava_servisi.yagisli_mi(kod):
+        st.warning("☂️ Yağış var, şemsiyeni almayı unutma!")
+
     st.subheader("5 Günlük Tahmin")
     tahmin = hava_servisi.tahmin_getir(enlem, boylam)
     tahmin_df = pd.DataFrame(
-        tahmin, columns=["Gün", "En Yüksek (°C)", "En Düşük (°C)"]
+        tahmin, columns=["Gün", "Durum", "En Yüksek (°C)", "En Düşük (°C)"]
     )
     st.dataframe(tahmin_df, use_container_width=True, hide_index=True)
 
